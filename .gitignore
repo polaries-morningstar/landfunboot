@@ -1,0 +1,23 @@
+# Backend .gitignore
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Frontend ignore (Separately managed)
+frontend/
+
+# Logs and PIDs
+*.log
+.app.pids
+
+# IDE and Project
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
