@@ -1,22 +1,24 @@
 package com.landfun.boot.modules.auth.service;
 
-import cn.hutool.crypto.digest.BCrypt;
-import com.landfun.boot.infrastructure.exception.BizException;
-import com.landfun.boot.infrastructure.util.JwtUtils;
-import com.landfun.boot.modules.auth.dto.LoginReq;
-import com.landfun.boot.modules.system.role.RoleFetcher;
-import com.landfun.boot.modules.system.user.User;
-import com.landfun.boot.modules.system.user.UserFetcher;
-import com.landfun.boot.modules.system.user.UserTable;
-import com.landfun.boot.modules.system.menu.MenuFetcher;
-import lombok.RequiredArgsConstructor;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import com.landfun.boot.infrastructure.exception.BizException;
+import com.landfun.boot.infrastructure.util.JwtUtils;
+import com.landfun.boot.modules.auth.dto.LoginReq;
+import com.landfun.boot.modules.system.menu.MenuFetcher;
+import com.landfun.boot.modules.system.role.RoleFetcher;
+import com.landfun.boot.modules.system.user.User;
+import com.landfun.boot.modules.system.user.UserFetcher;
+import com.landfun.boot.modules.system.user.UserTable;
+
+import cn.hutool.crypto.digest.BCrypt;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -87,7 +89,13 @@ public class AuthService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
-        result.put("user", user);
+
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.id());
+        userData.put("username", user.username());
+        userData.put("email", user.email());
+        result.put("user", userData);
+
         return result;
     }
 }

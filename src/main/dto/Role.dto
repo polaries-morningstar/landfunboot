@@ -1,0 +1,34 @@
+export com.landfun.boot.modules.system.role.Role
+
+input RoleInput {
+    #allScalars(Role)
+    id?
+    -createdTime
+    -updatedTime
+    id(menus) as menuIds
+    id(depts) as deptIds
+}
+
+RoleView {
+    #allScalars
+    
+    menus {
+        id
+    }
+    
+    depts {
+        id
+    }
+}
+
+specification RoleSpecification {
+    #allScalars(Role)
+    ge(createdTime) as minCreatedTime
+    le(createdTime) as maxCreatedTime
+    ge(updatedTime) as minUpdatedTime
+    le(updatedTime) as maxUpdatedTime
+    
+    like/i(name)
+    like/i(code)
+    like/i(description)
+}

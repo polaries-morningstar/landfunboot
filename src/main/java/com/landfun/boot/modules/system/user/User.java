@@ -1,11 +1,13 @@
 package com.landfun.boot.modules.system.user;
 
-import com.landfun.boot.modules.system.role.Role;
-import com.landfun.boot.modules.system.dept.Dept;
-import org.babyfish.jimmer.sql.*;
-import org.springframework.lang.Nullable;
 import java.time.LocalDateTime;
 import java.util.List;
+
+import org.babyfish.jimmer.sql.*;
+import org.jspecify.annotations.Nullable;
+
+import com.landfun.boot.modules.system.dept.Dept;
+import com.landfun.boot.modules.system.role.Role;
 
 @Entity
 @Table(name = "sys_user")

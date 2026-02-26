@@ -1,11 +1,12 @@
 package com.landfun.boot.modules.system.dept;
 
-import com.landfun.boot.modules.system.user.User;
-import org.babyfish.jimmer.sql.*;
-import org.springframework.lang.Nullable;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
+import org.babyfish.jimmer.sql.*;
+import org.jspecify.annotations.Nullable;
+
+import com.landfun.boot.modules.system.user.User;
 
 @Entity
 @Table(name = "sys_dept")

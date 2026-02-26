@@ -1,11 +1,13 @@
 package com.landfun.boot.infrastructure.exception;
 
-import com.landfun.boot.infrastructure.web.R;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import com.landfun.boot.infrastructure.web.R;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice

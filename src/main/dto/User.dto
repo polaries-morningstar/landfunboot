@@ -1,0 +1,65 @@
+export com.landfun.boot.modules.system.user.User
+
+import com.landfun.boot.modules.system.role.Role
+import com.landfun.boot.modules.system.dept.Dept
+
+input CreateUserInput {
+    #allScalars(User)
+    -id
+    -createdTime
+    -updatedTime
+    password
+    active
+    id(dept) as deptId
+    id(roles) as roleIds
+}
+
+input UpdateUserInput {
+    #allScalars(User)
+    id
+    -createdTime
+    -updatedTime
+    -password
+    active
+    id(dept) as deptId
+    id(roles) as roleIds
+}
+
+input ChangePasswordInput {
+    id
+    password
+}
+
+// Full view for list/get
+UserView {
+    #allScalars
+    -password
+    
+    dept {
+        #allScalars
+    }
+    
+    roles {
+        #allScalars
+    }
+}
+
+// Simple view for dropdowns etc
+UserSimpleView {
+    id
+    username
+}
+
+specification UserSpecification {
+    #allScalars(User)
+    ge(createdTime) as minCreatedTime
+    le(createdTime) as maxCreatedTime
+    ge(updatedTime) as minUpdatedTime
+    le(updatedTime) as maxUpdatedTime
+    -password
+    
+    like/i(username)
+    like/i(email)
+    
+    associatedIdEq(dept) as deptId
+}

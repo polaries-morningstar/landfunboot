@@ -1,11 +1,12 @@
 package com.landfun.boot.modules.system.menu;
 
-import com.landfun.boot.modules.system.role.Role;
-import org.babyfish.jimmer.sql.*;
-import org.springframework.lang.Nullable;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
+import org.babyfish.jimmer.sql.*;
+import org.jspecify.annotations.Nullable;
+
+import com.landfun.boot.modules.system.role.Role;
 
 @Entity
 @Table(name = "sys_menu")
@@ -16,39 +17,37 @@ public interface Menu {
     long id();
 
     @Key
-    @Column(name = "parent_id")
-    long parentId();
+    @Nullable
+    @ManyToOne
+    @JoinColumn(name = "parent_id")
+    Menu parent();
+
+    @OneToMany(mappedBy = "parent")
+    List<Menu> children();
 
     String name();
 
-    @Nullable // Added @Nullable
+    @Nullable
+    String icon();
+
+    @Nullable
     String path();
 
     @Key
     @Nullable
     String permission();
 
-    @Nullable
-    String component();
-
-    @Nullable
-    String icon();
-
-    @Column(name = "sort_order")
-    int sortOrder();
-
-    Type type();
+    MenuType type();
 
     @ManyToMany(mappedBy = "menus")
     List<Role> roles();
 
+    @LogicalDeleted("now")
+    @Nullable
+    @Column(name = "delete_time")
+    LocalDateTime deleteTime();
+
     LocalDateTime createdTime();
 
     LocalDateTime updatedTime();
-
-    enum Type {
-        DIR,
-        MENU,
-        BUTTON
-    }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>4.0.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.landfun</groupId>
@@ -16,7 +16,7 @@
 
     <properties>
         <java.version>21</java.version>
-        <jimmer.version>0.8.174</jimmer.version>
+        <jimmer.version>0.9.120</jimmer.version>
         <spotless.version>2.43.0</spotless.version>
     </properties>
 
@@ -28,7 +28,11 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -98,7 +102,12 @@
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.5.0</version>
+            <version>3.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
         <!-- Test -->
@@ -106,6 +115,12 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.babyfish.jimmer</groupId>
+            <artifactId>jimmer-apt</artifactId>
+            <version>${jimmer.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -137,7 +152,7 @@
                         <path>
                             <groupId>org.babyfish.jimmer</groupId>
                             <artifactId>jimmer-apt</artifactId>
-                            <version>${jimmer.version}</version>
+                            <version>0.9.120</version>
                         </path>
                         <path>
                             <groupId>org.projectlombok</groupId>

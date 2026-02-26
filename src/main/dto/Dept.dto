@@ -1,0 +1,38 @@
+export com.landfun.boot.modules.system.dept.Dept
+
+input DeptInput {
+    #allScalars(Dept)
+    id?
+    -createdTime
+    -updatedTime
+    id(parent) as parentId
+}
+
+
+
+DeptView {
+    #allScalars
+    
+    parent {
+
+        id
+        name
+    }
+}
+
+DeptTreeView {
+    #allScalars
+    children*
+}
+
+
+
+specification DeptSpecification {
+    #allScalars(Dept)
+    ge(createdTime) as minCreatedTime
+    le(createdTime) as maxCreatedTime
+    ge(updatedTime) as minUpdatedTime
+    le(updatedTime) as maxUpdatedTime
+    
+    like/i(name)
+}

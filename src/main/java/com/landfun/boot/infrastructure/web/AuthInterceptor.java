@@ -1,21 +1,22 @@
 package com.landfun.boot.infrastructure.web;
 
-import com.landfun.boot.infrastructure.util.JwtUtils;
-import io.jsonwebtoken.Claims;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.babyfish.jimmer.sql.JSqlClient;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-import org.babyfish.jimmer.sql.JSqlClient;
-import com.landfun.boot.modules.system.user.UserTable;
-import com.landfun.boot.modules.system.user.UserFetcher;
-import com.landfun.boot.modules.system.role.RoleFetcher;
+import com.landfun.boot.infrastructure.util.JwtUtils;
 import com.landfun.boot.modules.system.dept.DeptFetcher;
+import com.landfun.boot.modules.system.role.RoleFetcher;
+import com.landfun.boot.modules.system.user.UserFetcher;
+import com.landfun.boot.modules.system.user.UserTable;
+
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -36,14 +37,20 @@ public class AuthInterceptor implements HandlerInterceptor {
         String authHeader = request.getHeader("Authorization");
         log.info("Checking Auth for URI: {}, Header: {}", request.getRequestURI(), authHeader);
 
-        if (!StringUtils.hasText(authHeader)) {
-            log.warn("Missing Authorization Header");
+        // Bearer token support; fall back to ?token= query param (for SSE /
+        // EventSource)
+        String token;
+        if (StringUtils.hasText(authHeader)) {
+            token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+        } else {
+            token = request.getParameter("token");
+        }
+
+        if (!StringUtils.hasText(token)) {
+            log.warn("Missing token in Authorization header and query param");
             response.setStatus(401);
             return false;
         }
-
-        // Bearer token support
-        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
 
         try {
             Claims claims = jwtUtils.parseToken(token);

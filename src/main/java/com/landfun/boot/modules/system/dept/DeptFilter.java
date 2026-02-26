@@ -1,23 +1,23 @@
 package com.landfun.boot.modules.system.dept;
 
-import com.landfun.boot.infrastructure.web.AuthContext;
-import com.landfun.boot.modules.system.role.DataScope;
-import com.landfun.boot.modules.system.user.User;
-import com.landfun.boot.modules.system.user.UserFetcher;
-import com.landfun.boot.modules.system.user.UserTable;
-import com.landfun.boot.modules.system.user.UserProps;
-import com.landfun.boot.modules.system.dept.DeptProps;
-import com.landfun.boot.modules.system.dept.DeptTable;
-import com.landfun.boot.modules.system.dept.DeptFetcher;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.babyfish.jimmer.sql.JSqlClient;
 import org.babyfish.jimmer.sql.filter.Filter;
 import org.babyfish.jimmer.sql.filter.FilterArgs;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import com.landfun.boot.infrastructure.web.AuthContext;
+import com.landfun.boot.modules.system.dept.DeptFetcher;
+import com.landfun.boot.modules.system.dept.DeptProps;
+import com.landfun.boot.modules.system.dept.DeptTable;
+import com.landfun.boot.modules.system.role.DataScope;
+import com.landfun.boot.modules.system.user.User;
+import com.landfun.boot.modules.system.user.UserProps;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
@@ -101,18 +101,24 @@ public class DeptFilter implements Filter<DeptProps> {
                 .execute();
 
         List<Long> result = new ArrayList<>();
+        java.util.Set<Long> visited = new java.util.HashSet<>();
         result.add(rootId);
-        collectChildren(rootId, allDepts, result);
+        visited.add(rootId);
+        collectChildren(rootId, allDepts, result, visited);
         return result;
     }
 
-    private void collectChildren(Long parentId, List<Dept> allDepts, List<Long> result) {
+    private void collectChildren(Long parentId, List<Dept> allDepts, List<Long> result, java.util.Set<Long> visited) {
         for (Dept dept : allDepts) {
             Dept parent = dept.parent();
             if (parent != null && parent.id() == parentId) {
-                result.add(dept.id());
-                collectChildren(dept.id(), allDepts, result);
+                Long id = dept.id();
+                if (visited.add(id)) {
+                    result.add(id);
+                    collectChildren(id, allDepts, result, visited);
+                }
             }
         }
     }
+
 }
