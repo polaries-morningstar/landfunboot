@@ -12,6 +12,15 @@ frontend/
 *.log
 .app.pids
 
+# Configurations and Secrets
+src/main/resources/application.yml
+src/main/resources/application-*.yml
+src/main/resources/application.properties
+*.env
+*.local
+.env*
+frontend/.env*
+
 # IDE and Project
 .idea/
 .vscode/
