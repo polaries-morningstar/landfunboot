@@ -10,6 +10,7 @@ import com.landfun.boot.infrastructure.annotation.HasPermission;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
+import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordInput;
 import com.landfun.boot.modules.system.user.dto.CreateUserInput;
 import com.landfun.boot.modules.system.user.dto.UpdateUserInput;
 import com.landfun.boot.modules.system.user.dto.UserSpecification;
@@ -35,6 +36,13 @@ public class UserController {
         return R.ok(userService.page(spec, pageable));
     }
 
+    @Operation(summary = "Get User by ID")
+    @GetMapping("/{id}")
+    @HasPermission("sys:user:list")
+    public R<UserView> getById(@PathVariable long id) {
+        return R.ok(userService.getById(id));
+    }
+
     @Operation(summary = "Create User")
     @PostMapping
     @HasPermission("sys:user:add")
@@ -54,6 +62,13 @@ public class UserController {
     @HasPermission("sys:user:update")
     public R<Void> changePassword(@RequestBody @Valid ChangePasswordInput input) {
         userService.changePassword(input);
+        return R.ok(null);
+    }
+
+    @Operation(summary = "Change My Password")
+    @PostMapping("/password/self")
+    public R<Void> changeSelfPassword(@RequestBody @Valid ChangeSelfPasswordInput input) {
+        userService.changeSelfPassword(input);
         return R.ok(null);
     }
 

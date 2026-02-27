@@ -7,7 +7,8 @@ import org.springframework.data.web.PageableDefault;
 import com.landfun.boot.infrastructure.annotation.HasPermission;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
-import com.landfun.boot.modules.system.role.dto.RoleInput;
+import com.landfun.boot.modules.system.role.dto.CreateRoleInput;
+import com.landfun.boot.modules.system.role.dto.UpdateRoleInput;
 import com.landfun.boot.modules.system.role.dto.RoleSpecification;
 import com.landfun.boot.modules.system.role.dto.RoleView;
 
@@ -47,15 +48,15 @@ public class RoleController {
     @Operation(summary = "Create Role")
     @PostMapping
     @HasPermission("sys:role:add")
-    public R<RoleView> create(@RequestBody @Valid RoleInput input) {
-        return R.ok(roleService.save(input));
+    public R<RoleView> create(@RequestBody @Valid CreateRoleInput input) {
+        return R.ok(roleService.create(input));
     }
 
     @Operation(summary = "Update Role")
     @PutMapping
     @HasPermission("sys:role:update")
-    public R<RoleView> update(@RequestBody @Valid RoleInput input) {
-        return R.ok(roleService.save(input));
+    public R<RoleView> update(@RequestBody @Valid UpdateRoleInput input) {
+        return R.ok(roleService.update(input));
     }
 
     @Operation(summary = "Delete Role")

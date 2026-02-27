@@ -67,13 +67,13 @@ class LandfunTester:
         print(f"{ECHO_PREFIX} Failed create role: {resp.text}")
         return None
 
-    def create_user(self, username, email, role_ids, dept_id):
+    def create_user(self, username, email, role_id, dept_id):
         payload = {
             "username": username,
             "email": email,
             "password": "password",
             "active": True,
-            "roleIds": role_ids,
+            "roleId": role_id,
             "deptId": dept_id,
         }
         resp = self.session.post(
@@ -141,11 +141,11 @@ def run_verify():
     # 3. Create Users
     # UserSame in ScopeRoot
     user_same_id = admin.create_user(
-        "u_same", "u_same@landfun.com", [role_same_id], root_id
+        "u_same", "u_same@landfun.com", role_same_id, root_id
     )
     # UserRecur in ScopeRoot
     user_recur_id = admin.create_user(
-        "u_recur", "u_recur@landfun.com", [role_recur_id], root_id
+        "u_recur", "u_recur@landfun.com", role_recur_id, root_id
     )
 
     print("\n--- 2. Verify Data Permissions (Dept Tree) ---\n")

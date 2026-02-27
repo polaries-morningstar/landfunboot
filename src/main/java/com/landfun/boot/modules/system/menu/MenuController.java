@@ -10,10 +10,10 @@ import com.landfun.boot.infrastructure.annotation.HasPermission;
 import com.landfun.boot.infrastructure.web.IdInput;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
-import com.landfun.boot.modules.system.menu.dto.MenuInput;
+import com.landfun.boot.modules.system.menu.dto.CreateMenuInput;
+import com.landfun.boot.modules.system.menu.dto.UpdateMenuInput;
 import com.landfun.boot.modules.system.menu.dto.MenuSpecification;
 import com.landfun.boot.modules.system.menu.dto.MenuView;
-import com.landfun.boot.modules.system.menu.dto.MenuTreeView;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,28 +30,30 @@ public class MenuController {
 
     @Operation(summary = "Get Menu List")
     @GetMapping("/list")
+    @HasPermission("sys:menu:list")
     public R<PageResult<MenuView>> list(MenuSpecification spec, @PageableDefault Pageable pageable) {
         return R.ok(menuService.list(spec, pageable));
     }
 
     @Operation(summary = "Get Menu Tree")
     @GetMapping("/tree")
-    public R<List<MenuTreeView>> tree() {
+    @HasPermission("sys:menu:list")
+    public R<List<java.util.Map<String, Object>>> tree() {
         return R.ok(menuService.tree());
     }
 
     @Operation(summary = "Create Menu")
     @PostMapping("/create")
     @HasPermission("sys:menu:add")
-    public R<MenuView> create(@RequestBody @Valid MenuInput input) {
-        return R.ok(menuService.save(input));
+    public R<MenuView> create(@RequestBody @Valid CreateMenuInput input) {
+        return R.ok(menuService.create(input));
     }
 
     @Operation(summary = "Update Menu")
     @PostMapping("/update")
     @HasPermission("sys:menu:update")
-    public R<MenuView> update(@RequestBody @Valid MenuInput input) {
-        return R.ok(menuService.save(input));
+    public R<MenuView> update(@RequestBody @Valid UpdateMenuInput input) {
+        return R.ok(menuService.update(input));
     }
 
     @Operation(summary = "Delete Menu")

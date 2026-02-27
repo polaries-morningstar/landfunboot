@@ -10,7 +10,8 @@ import com.landfun.boot.infrastructure.annotation.HasPermission;
 import com.landfun.boot.infrastructure.web.IdInput;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
-import com.landfun.boot.modules.system.dept.dto.DeptInput;
+import com.landfun.boot.modules.system.dept.dto.CreateDeptInput;
+import com.landfun.boot.modules.system.dept.dto.UpdateDeptInput;
 import com.landfun.boot.modules.system.dept.dto.DeptSpecification;
 import com.landfun.boot.modules.system.dept.dto.DeptView;
 import com.landfun.boot.modules.system.dept.dto.DeptTreeView;
@@ -30,12 +31,14 @@ public class DeptController {
 
     @Operation(summary = "Get Department List")
     @GetMapping("/list")
+    @HasPermission("sys:dept:list")
     public R<PageResult<DeptView>> list(DeptSpecification spec, @PageableDefault Pageable pageable) {
         return R.ok(deptService.list(spec, pageable));
     }
 
     @Operation(summary = "Get Department Tree")
     @GetMapping("/tree")
+    @HasPermission("sys:dept:list")
     public R<List<DeptTreeView>> tree() {
         return R.ok(deptService.tree());
     }
@@ -43,15 +46,15 @@ public class DeptController {
     @Operation(summary = "Create Department")
     @PostMapping("/create")
     @HasPermission("sys:dept:add")
-    public R<DeptView> create(@RequestBody @Valid DeptInput input) {
-        return R.ok(deptService.save(input));
+    public R<DeptView> create(@RequestBody @Valid CreateDeptInput input) {
+        return R.ok(deptService.create(input));
     }
 
     @Operation(summary = "Update Department")
     @PostMapping("/update")
     @HasPermission("sys:dept:update")
-    public R<DeptView> update(@RequestBody @Valid DeptInput input) {
-        return R.ok(deptService.save(input));
+    public R<DeptView> update(@RequestBody @Valid UpdateDeptInput input) {
+        return R.ok(deptService.update(input));
     }
 
     @Operation(summary = "Delete Department")

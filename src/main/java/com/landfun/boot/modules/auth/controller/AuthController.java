@@ -26,4 +26,10 @@ public class AuthController {
     public R<Object> login(@RequestBody LoginReq req) {
         return R.ok(authService.login(req));
     }
+
+    @Operation(summary = "Get User Info")
+    @org.springframework.web.bind.annotation.GetMapping("/info")
+    public R<Object> info() {
+        return R.ok(authService.info());
+    }
 }

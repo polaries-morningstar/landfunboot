@@ -28,7 +28,7 @@ public interface Role {
     @Column(name = "data_scope")
     DataScope dataScope();
 
-    @ManyToMany(mappedBy = "roles")
+    @OneToMany(mappedBy = "role")
     List<User> users();
 
     @ManyToMany

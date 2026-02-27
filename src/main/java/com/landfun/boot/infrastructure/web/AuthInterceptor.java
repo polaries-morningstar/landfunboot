@@ -69,17 +69,18 @@ public class AuthInterceptor implements HandlerInterceptor {
                 return false;
             }
 
-            // Fetch User with Roles and Dept once per request
+        // Fetch User with Role and Dept once per request
             com.landfun.boot.modules.system.user.User user = sqlClient.createQuery(UserTable.$)
                     .where(UserTable.$.id().eq(userId))
                     .select(
                             UserTable.$.fetch(
                                     UserFetcher.$
+                                            .allScalarFields()
                                             .dept()
-                                            .roles(
-                                                    RoleFetcher.$
-                                                            .allScalarFields()
-                                                            .depts(DeptFetcher.$))))
+                                        .role(
+                                                RoleFetcher.$
+                                                        .allScalarFields()
+                                                        .depts(DeptFetcher.$))))
                     .fetchOneOrNull();
 
             if (user == null) {
@@ -90,6 +91,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
             AuthContext.setUserId(userId);
             AuthContext.setUser(user);
+        log.debug("User {} ({}) loaded with role: {}", user.username(), user.id(),
+                user.role() != null ? user.role().code() : "NONE");
             return true;
         } catch (Exception e) {
             log.warn("Auth failed: {}", e.getMessage(), e);

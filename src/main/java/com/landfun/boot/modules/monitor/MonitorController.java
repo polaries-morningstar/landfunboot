@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MonitorController {
 
     /** Push interval */
-    private static final Duration PUSH_INTERVAL = Duration.ofSeconds(2);
+    private static final Duration PUSH_INTERVAL = Duration.ofSeconds(1);
 
     /** SSE connection timeout: 10 minutes */
     private static final long SSE_TIMEOUT_MS = 10 * 60 * 1000L;
@@ -46,7 +46,7 @@ public class MonitorController {
 
     // ---- SSE stream (Java 21 virtual thread) ----
 
-    @Operation(summary = "Server-Sent Events: push ServerInfo every 3s", description = "EventSource does not support custom headers. "
+    @Operation(summary = "Server-Sent Events: push ServerInfo every second", description = "EventSource does not support custom headers. "
             + "Pass the JWT token via the ?token= query parameter.")
     @GetMapping(value = "/stream", produces = "text/event-stream")
     @HasPermission("sys:monitor:info")

@@ -1,8 +1,16 @@
 export com.landfun.boot.modules.system.menu.Menu
 
-input MenuInput {
+input CreateMenuInput {
     #allScalars(Menu)
-    id?
+    -id
+    -createdTime
+    -updatedTime
+    id(parent) as parentId
+}
+
+input UpdateMenuInput {
+    #allScalars(Menu)
+    id
     -createdTime
     -updatedTime
     id(parent) as parentId

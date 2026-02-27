@@ -8,10 +8,11 @@ input CreateUserInput {
     -id
     -createdTime
     -updatedTime
+    -superuser
     password
     active
     id(dept) as deptId
-    id(roles) as roleIds
+    id(role) as roleId
 }
 
 input UpdateUserInput {
@@ -20,13 +21,18 @@ input UpdateUserInput {
     -createdTime
     -updatedTime
     -password
+    -superuser
     active
     id(dept) as deptId
-    id(roles) as roleIds
+    id(role) as roleId
 }
 
 input ChangePasswordInput {
     id
+    password
+}
+
+input ChangeSelfPasswordInput {
     password
 }
 
@@ -39,7 +45,7 @@ UserView {
         #allScalars
     }
     
-    roles {
+    role {
         #allScalars
     }
 }

@@ -1,8 +1,16 @@
 export com.landfun.boot.modules.system.dept.Dept
 
-input DeptInput {
+input CreateDeptInput {
     #allScalars(Dept)
-    id?
+    -id
+    -createdTime
+    -updatedTime
+    id(parent) as parentId
+}
+
+input UpdateDeptInput {
+    #allScalars(Dept)
+    id
     -createdTime
     -updatedTime
     id(parent) as parentId

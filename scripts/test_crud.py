@@ -208,7 +208,7 @@ class LandfunTester:
             "email": "apitest@example.com",
             "password": "password123",
             "active": True,
-            "roleIds": [],
+            "roleId": None,
         }
         resp = self.session.post(
             f"{BASE_URL}/sys/user", json=create_payload, headers=self.headers
@@ -227,7 +227,7 @@ class LandfunTester:
             "email": "apitest@example.com",
             "password": "password123",
             "active": False,
-            "roleIds": [],
+            "roleId": None,
         }
         resp = self.session.put(
             f"{BASE_URL}/sys/user", json=update_payload, headers=self.headers

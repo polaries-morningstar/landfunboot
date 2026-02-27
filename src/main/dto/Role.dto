@@ -1,8 +1,17 @@
 export com.landfun.boot.modules.system.role.Role
 
-input RoleInput {
+input CreateRoleInput {
     #allScalars(Role)
-    id?
+    -id
+    -createdTime
+    -updatedTime
+    id(menus) as menuIds
+    id(depts) as deptIds
+}
+
+input UpdateRoleInput {
+    #allScalars(Role)
+    id
     -createdTime
     -updatedTime
     id(menus) as menuIds

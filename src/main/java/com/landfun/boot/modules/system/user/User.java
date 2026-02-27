@@ -1,7 +1,6 @@
 package com.landfun.boot.modules.system.user;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import org.babyfish.jimmer.sql.*;
 import org.jspecify.annotations.Nullable;
@@ -33,14 +32,19 @@ public interface User {
     @Column(name = "is_active")
     boolean isActive();
 
+    @Default("false")
+    @Column(name = "is_superuser")
+    boolean isSuperuser();
+
     @LogicalDeleted("now")
     @Nullable
     @Column(name = "delete_time")
     LocalDateTime deleteTime();
 
-    @ManyToMany
-    @JoinTable(name = "sys_user_role_mapping", joinColumnName = "user_id", inverseJoinColumnName = "role_id")
-    List<Role> roles();
+    @Nullable
+    @ManyToOne
+    @JoinColumn(name = "role_id")
+    Role role();
 
     @Nullable
     @ManyToOne

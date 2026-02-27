@@ -24,9 +24,16 @@ if check_port $FRONTEND_PORT; then
     exit 1
 fi
 
+# Build Backend
+echo "Building Backend (Maven)..."
+cd "$ROOT_DIR"
+if ! mvn clean package -DskipTests; then
+    echo "Error: Backend build failed."
+    exit 1
+fi
+
 # Start Backend
 echo "Starting Backend (Spring Boot)..."
-cd "$ROOT_DIR"
 nohup java -jar target/landfunboot-*.jar > "$LOGS_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID > "$PID_FILE"
@@ -35,6 +42,8 @@ echo $BACKEND_PID > "$PID_FILE"
 echo "Starting Frontend (Vite)..."
 if [ -d "$ROOT_DIR/frontend" ]; then
     cd "$ROOT_DIR/frontend"
+    # Ensure dependencies are up to date and start dev server
+    # npm install # Uncomment if you want auto-install
     npm run dev -- --host > "$LOGS_DIR/frontend.log" 2>&1 &
     FRONTEND_PID=$!
     echo $FRONTEND_PID >> "$PID_FILE"

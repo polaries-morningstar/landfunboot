@@ -17,6 +17,7 @@ import com.landfun.boot.infrastructure.exception.BizException;
 import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
+import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordInput;
 import com.landfun.boot.modules.system.user.dto.CreateUserInput;
 import com.landfun.boot.modules.system.user.dto.UpdateUserInput;
 import com.landfun.boot.modules.system.user.dto.UserSpecification;
@@ -51,10 +52,26 @@ public class UserService {
         return sqlClient.findById(UserView.class, result.getModifiedEntity().id());
     }
 
+    public UserView getById(long id) {
+        return sqlClient.findById(UserView.class, id);
+    }
+
     @Transactional
     public UserView update(UpdateUserInput input) {
-        SimpleSaveResult<User> result = sqlClient.getEntities().save(input);
-        return sqlClient.findById(UserView.class, result.getModifiedEntity().id());
+        log.info("Updating user with input: {}", input);
+
+        // Update scalar fields and simple associations (dept, role)
+        sqlClient.getEntities().saveCommand(input)
+                .setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.UPDATE_ONLY)
+                .execute();
+
+        // Evict permissions cache so that it re-fetches if roles changed
+        redisTemplate.delete("user:permissions:" + input.getId());
+        // Also evict the token-based auth cache if user is currently logged in
+        // (no-op if not; Redis delete on missing key is safe)
+        redisTemplate.delete("user:token:" + input.getId());
+
+        return sqlClient.findById(UserView.class, input.getId());
     }
 
     @Transactional
@@ -67,8 +84,36 @@ public class UserService {
     }
 
     @Transactional
+    public void changeSelfPassword(ChangeSelfPasswordInput input) {
+        Long currentUserId = AuthContext.getUserId();
+        if (currentUserId == null) {
+            throw new BizException(401, "User not authenticated");
+        }
+        String hashedPassword = cn.hutool.crypto.digest.BCrypt.hashpw(input.getPassword());
+        sqlClient.createUpdate(UserTable.$)
+                .set(UserTable.$.password(), hashedPassword)
+                .where(UserTable.$.id().eq(currentUserId))
+                .execute();
+    }
+
+    @Transactional
     public void delete(long id) {
+        // 禁止删除超级管理员用户
+        Boolean isSuperuser = sqlClient
+                .filters(cfg -> cfg.disableAll())
+                .createQuery(UserTable.$)
+                .where(
+                        UserTable.$.id().eq(id),
+                        UserTable.$.deleteTime().isNull())
+                .select(UserTable.$.superuser())
+                .fetchOneOrNull();
+        if (Boolean.TRUE.equals(isSuperuser)) {
+            throw new BizException("不能删除超级管理员用户");
+        }
+
         sqlClient.deleteById(User.class, id);
+        redisTemplate.delete("user:permissions:" + id);
+        redisTemplate.delete("user:token:" + id);
     }
 
     /** 查询所有在线用户（Redis 中持有 token 的用户） */

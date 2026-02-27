@@ -188,36 +188,36 @@ def main():
             "email": "user1@test.com",
             "username": "user1",
             "deptId": depts["A"],
-            "roleIds": [roles["SuperManager"]],
+            "roleId": roles["SuperManager"],
         },
         {
             "email": "user2@test.com",
             "username": "user2",
             "deptId": depts["B"],
-            "roleIds": [roles["AreaManager"]],
+            "roleId": roles["AreaManager"],
         },
         {
             "email": "user3@test.com",
             "username": "user3",
             "deptId": depts["C"],
-            "roleIds": [roles["CustomViewer"]],
+            "roleId": roles["CustomViewer"],
         },
         {
             "email": "user4@test.com",
             "username": "user4",
             "deptId": depts["D"],
-            "roleIds": [roles["AreaManager"]],
+            "roleId": roles["AreaManager"],
         },
         {
             "email": "user5@test.com",
             "username": "user5",
             "deptId": depts["E"],
-            "roleIds": [],
+            "roleId": None,
         },
     ]
 
     for cfg in user_configs:
-        cfg["password"] = "password123"
+        cfg["password"] = "password"
         cfg["active"] = True
         resp = admin.post("/sys/user", cfg)
         if resp.status_code != 200 or resp.json().get("code") != 200:
@@ -232,7 +232,7 @@ def main():
     for cfg in user_configs:
         print(f"\n--- Testing User: {cfg['username']} ({cfg['email']}) ---")
         try:
-            client = LandfunClient(cfg["email"], cfg["password"])
+            client = LandfunClient(cfg["email"], "password")
 
             # 3.1 Verify Menu/API Authorization
             # Attempt to list roles (most users shouldn't be able to)
@@ -245,7 +245,7 @@ def main():
             dept_resp = client.get("/sys/dept/list", params={"size": 100})
             if dept_resp.status_code == 200 and dept_resp.json().get("code") == 200:
                 visible_dept_names = [
-                    d["name"] for d in dept_resp.json()["data"]["content"]
+                    d["name"] for d in dept_resp.json()["data"]["rows"]
                 ]
                 visible_count = len(visible_dept_names)
             else:
@@ -255,7 +255,7 @@ def main():
             results.append(
                 {
                     "user": cfg["username"],
-                    "roles": cfg["roleIds"],
+                    "roleId": cfg.get("roleId"),
                     "can_list_roles": has_role_list,
                     "visible_depts": visible_dept_names,
                 }
@@ -274,6 +274,23 @@ def main():
     for r in results:
         depts_str = ", ".join(r["visible_depts"])
         print(f"{r['user']:<10} | {str(r['can_list_roles']):<10} | {depts_str}")
+
+    print("\n3.3 Verifying User Data Scope...")
+    for cfg in user_configs:
+        try:
+            client = LandfunClient(cfg["email"], "password")
+            user_resp = client.get("/sys/user", params={"size": 100})
+            if user_resp.status_code == 200 and user_resp.json().get("code") == 200:
+                visible_users = [
+                    u["username"] for u in user_resp.json()["data"]["rows"]
+                ]
+                print(
+                    f"  User {cfg['username']} visible users ({len(visible_users)}): {', '.join(visible_users)}"
+                )
+            else:
+                print(f"  User {cfg['username']} failed to get users: {user_resp.text}")
+        except Exception as e:
+            print(f"  Error getting users for {cfg['username']}: {e}")
 
 
 if __name__ == "__main__":

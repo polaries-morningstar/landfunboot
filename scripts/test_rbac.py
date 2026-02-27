@@ -74,13 +74,13 @@ class LandfunTester:
         print(f"Failed to create role {name}: {resp.text}")
         return None
 
-    def create_user(self, username, email, role_ids):
+    def create_user(self, username, email, role_id):
         payload = {
             "username": username,
             "email": email,
             "password": "password",
             "active": True,
-            "roleIds": role_ids,
+            "roleId": role_id,
         }
         resp = self.session.post(
             f"{BASE_URL}/sys/user", json=payload, headers=self.headers
@@ -177,9 +177,9 @@ def run_rbac_test():
 
     # 3. Create Users
     user_finance_id = admin.create_user(
-        "finance", "finance@landfun.com", [role_finance_id]
+        "finance", "finance@landfun.com", role_finance_id
     )
-    user_viewer_id = admin.create_user("viewer", "viewer@landfun.com", [role_viewer_id])
+    user_viewer_id = admin.create_user("viewer", "viewer@landfun.com", role_viewer_id)
 
     if not user_finance_id or not user_viewer_id:
         print("Failed to create users")
@@ -213,7 +213,7 @@ def run_rbac_test():
                 "email": "bad@evil.com",
                 "password": "123",
                 "active": True,
-                "roleIds": [],
+                "roleId": None,
             },
             expect_code=403,
         )
@@ -248,7 +248,7 @@ def run_rbac_test():
                 "email": "bad2@evil.com",
                 "password": "123",
                 "active": True,
-                "roleIds": [],
+                "roleId": None,
             },
             expect_code=403,
         )

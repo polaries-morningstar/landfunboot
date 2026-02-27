@@ -23,18 +23,31 @@ public class PermissionAspect {
 
     @Around("@annotation(hasPermission)")
     public Object checkPermission(ProceedingJoinPoint point, HasPermission hasPermission) throws Throwable {
-        Long userId = AuthContext.getUserId();
-        if (userId == null) {
+        com.landfun.boot.modules.system.user.User user = AuthContext.getUser();
+        if (user == null) {
             throw new BizException(401, "Unauthorized");
         }
 
+        // 1. Super Admin Bypass: if user is superuser, allow everything
+        boolean isAdmin = user.isSuperuser();
+
+        log.debug("Permission check - User: {}, Permission: {}, isSuperuser: {}",
+                user.username(), hasPermission.value(), isAdmin);
+
+        if (isAdmin) {
+            log.debug("Super admin bypass triggered for user {}", user.username());
+            return point.proceed();
+        }
+
+        // 2. Regular check via Redis Cache
         String permission = hasPermission.value();
-        String redisKey = "user:permissions:" + userId;
+        String redisKey = "user:permissions:" + user.id();
 
         Boolean hasIt = redisTemplate.opsForSet().isMember(redisKey, permission);
-        Boolean isAdmin = redisTemplate.opsForSet().isMember(redisKey, "*");
+        // Also support '*' in redis for other potential super-roles stored in cache
+        Boolean hasStar = redisTemplate.opsForSet().isMember(redisKey, "*");
 
-        if (Boolean.TRUE.equals(hasIt) || Boolean.TRUE.equals(isAdmin)) {
+        if (Boolean.TRUE.equals(hasIt) || Boolean.TRUE.equals(hasStar)) {
             return point.proceed();
         }
 
