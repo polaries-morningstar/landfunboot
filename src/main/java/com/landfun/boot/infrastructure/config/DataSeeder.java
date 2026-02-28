@@ -5,6 +5,9 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.landfun.boot.modules.system.dept.Dept;
+import com.landfun.boot.modules.system.dept.DeptDraft;
+import com.landfun.boot.modules.system.dept.DeptTable;
 import com.landfun.boot.modules.system.menu.Menu;
 import com.landfun.boot.modules.system.menu.MenuDraft;
 import com.landfun.boot.modules.system.menu.MenuTable;
@@ -31,57 +34,11 @@ public class DataSeeder implements CommandLineRunner {
 
         @Override
         public void run(String... args) {
-                log.info("Checking database schema...");
-                try {
-                        Integer count = jdbcTemplate.queryForObject(
-                                        "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_menu' AND column_name = 'icon'",
-                                        Integer.class);
-                        if (count == null || count == 0) {
-                                log.info("Adding icon column to sys_menu table...");
-                                jdbcTemplate.execute(
-                                                "ALTER TABLE sys_menu ADD COLUMN icon VARCHAR(255) DEFAULT NULL AFTER name");
-                                log.info("Icon column added successfully.");
-                        } else {
-                                log.info("Icon column already exists.");
-                        }
-                } catch (Exception e) {
-                        log.warn("Manual schema update notice (icon): " + e.getMessage());
-                }
-
-                try {
-                        Integer count = jdbcTemplate.queryForObject(
-                                        "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sys_user' AND column_name = 'is_superuser'",
-                                        Integer.class);
-                        if (count == null || count == 0) {
-                                log.info("Adding is_superuser column to sys_user table...");
-                                jdbcTemplate.execute(
-                                                "ALTER TABLE sys_user ADD COLUMN is_superuser tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否为超级管理员(1-是, 0-否)'");
-                                jdbcTemplate.execute(
-                                                "UPDATE sys_user SET is_superuser = 1 WHERE username = 'admin'");
-                                log.info("is_superuser column added successfully.");
-                        } else {
-                                log.info("is_superuser column already exists.");
-                        }
-                } catch (Exception e) {
-                        log.warn("Manual schema update notice (is_superuser): " + e.getMessage());
-                }
-
                 log.info("Seeding data...");
                 seedRbac();
         }
 
         private void seedRbac() {
-                // Wipe old menu data to enforce the new precise frontend layout
-                try {
-                        jdbcTemplate.update("SET FOREIGN_KEY_CHECKS = 0");
-                        jdbcTemplate.update("TRUNCATE TABLE sys_role_menu_mapping");
-                        jdbcTemplate.update("TRUNCATE TABLE sys_menu");
-                } catch (Exception e) {
-                        log.warn("Could not truncate tables: {}", e.getMessage());
-                } finally {
-                        jdbcTemplate.update("SET FOREIGN_KEY_CHECKS = 1");
-                }
-
                 // 1. Create Menus
                 // Group 1: 系统管理 (DIR)
                 long sysDirId = saveMenu(0, "系统管理", null, "settings", "DIR_SYS_ADMIN", MenuType.DIR);
@@ -134,14 +91,67 @@ public class DataSeeder implements CommandLineRunner {
                                                 monitorDirId, monitorMenuId, onlineMenuId, userKickoutId));
 
                 // ReadOnly: List only
-                saveRole("ReadOnly", "readonly", "Read Only User", DataScope.ALL,
+                long readOnlyRoleId = saveRole("ReadOnly", "readonly", "Read Only User", DataScope.ALL,
                                 java.util.List.of(
                                                 sysDirId, userListId, roleListId, deptListId, menuListId,
                                                 monitorDirId, monitorMenuId, onlineMenuId));
 
-                // 3. Update Admin User
-                updateAdminUser(adminRoleId);
-                log.info("RBAC Data seeded successfully with perfect Frontend sync.");
+                // 3. Create Departments
+                long rootDeptId = saveDept(0, "总部");
+                long testDeptId = saveDept(rootDeptId, "测试部门");
+
+                // 4. Create Users
+                // Super Admin
+                saveUser("admin", "admin@landfun.com", "password", true, adminRoleId, rootDeptId);
+                // Normal User
+                saveUser("user", "user@landfun.com", "password", false, readOnlyRoleId, testDeptId);
+
+                log.info("RBAC Data seeded successfully with Departments and Users.");
+        }
+
+        private long saveDept(long parentId, String name) {
+                DeptTable t = DeptTable.$;
+                Dept existing = sqlClient.createQuery(t)
+                                .where(t.name().eq(name))
+                                .select(t)
+                                .fetchOneOrNull();
+
+                if (existing != null) {
+                        return existing.id();
+                }
+
+                return sqlClient.getEntities().save(
+                                DeptDraft.$.produce(draft -> {
+                                        if (parentId > 0) {
+                                                draft.setParentId(parentId);
+                                        }
+                                        draft.setName(name);
+                                })).getModifiedEntity().id();
+        }
+
+        private void saveUser(String username, String email, String password, boolean isSuperuser, long roleId,
+                        long deptId) {
+                UserTable t = UserTable.$;
+                User existing = sqlClient.createQuery(t)
+                                .where(t.username().eq(username))
+                                .select(t)
+                                .fetchOneOrNull();
+
+                if (existing != null) {
+                        return;
+                }
+
+                sqlClient.getEntities().save(
+                                UserDraft.$.produce(draft -> {
+                                        draft.setUsername(username);
+                                        draft.setEmail(email);
+                                        draft.setPassword(BCrypt.hashpw(password));
+                                        draft.setActive(true);
+                                        draft.setSuperuser(isSuperuser);
+                                        draft.setRoleId(roleId);
+                                        draft.setDeptId(deptId);
+                                }));
+                log.info("Initialized user: {}", username);
         }
 
         private long saveMenu(long parentId, String name, String path, String icon, String permission,
@@ -192,11 +202,12 @@ public class DataSeeder implements CommandLineRunner {
                                 .select(t)
                                 .fetchOneOrNull();
 
+                if (existing != null) {
+                        return existing.id();
+                }
+
                 long roleId = sqlClient.getEntities().save(
                                 RoleDraft.$.produce(draft -> {
-                                        if (existing != null) {
-                                                draft.setId(existing.id());
-                                        }
                                         draft.setName(name);
                                         draft.setCode(code);
                                         draft.setDescription(description);
@@ -215,34 +226,4 @@ public class DataSeeder implements CommandLineRunner {
                 return roleId;
         }
 
-        private void updateAdminUser(long roleId) {
-                String email = "admin@landfun.com";
-                UserTable t = UserTable.$;
-                User existing = sqlClient.createQuery(t)
-                                .where(t.email().eq(email))
-                                .select(t)
-                                .fetchOneOrNull();
-
-                if (existing == null) {
-                        sqlClient.getEntities().save(
-                                        UserDraft.$.produce(draft -> {
-                                                draft.setUsername("admin");
-                                                draft.setEmail(email);
-                                                draft.setPassword(BCrypt.hashpw("password"));
-                                                draft.setActive(true);
-                                                draft.setSuperuser(true);
-                                                draft.setRoleId(roleId);
-                                        }));
-                } else {
-                        // Attach role if not present? Or just force overwrite roles?
-                        // Simple: Force assign admin role
-                        sqlClient.getEntities().saveCommand(
-                                        UserDraft.$.produce(existing, draft -> {
-                                                draft.setActive(true);
-                                                draft.setSuperuser(true);
-                                                draft.setPassword(BCrypt.hashpw("password"));
-                                                draft.setRoleId(roleId);
-                                        })).execute();
-                }
-        }
 }
