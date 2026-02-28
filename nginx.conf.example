@@ -1,0 +1,32 @@
+# Nginx Configuration Example for LandfunBoot
+
+# This configuration maps the static files uploaded by the application 
+# to be served directly by Nginx for better performance.
+
+server {
+    listen 80;
+    server_name localhost; # Replace with your domain or IP
+
+    # Backend API Proxy
+    location /api/ {
+        proxy_pass http://localhost:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Static Files for Storage
+    # This maps URL paths starting with /api/files/ to the actual local directory
+    location /api/files/ {
+        # CHANGE THIS to the absolute path of your 'uploads' directory
+        alias /Users/yingjun.bian/Code/landfunBoot/uploads/;
+        
+        # Performance optimizations
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        
+        # Optional: enable directory listing (usually off in production)
+        autoindex on;
+    }
+}
