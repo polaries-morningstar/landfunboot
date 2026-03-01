@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 
 import com.landfun.boot.infrastructure.annotation.HasPermission;
+import com.landfun.boot.infrastructure.exception.BizException;
+import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
@@ -34,6 +36,16 @@ public class UserController {
     @HasPermission("sys:user:list")
     public R<PageResult<UserView>> list(UserSpecification spec, @PageableDefault Pageable pageable) {
         return R.ok(userService.page(spec, pageable));
+    }
+
+    @Operation(summary = "Get Current User Profile")
+    @GetMapping("/self")
+    public R<UserView> self() {
+        Long id = AuthContext.getUserId();
+        if (id == null) {
+            throw new BizException(401, "Not authenticated");
+        }
+        return R.ok(userService.getById(id));
     }
 
     @Operation(summary = "Get User by ID")
