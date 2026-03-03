@@ -1,0 +1,38 @@
+export com.landfun.boot.modules.system.msg.Message -> package com.landfun.boot.modules.system.msg.dto
+
+import com.landfun.boot.modules.system.user.User
+
+// List/detail view: message with sender info
+MessageView {
+    id
+    title
+    content
+    createdTime
+    targetType
+    sender {
+        id
+        username
+        email
+    }
+}
+
+// For "all messages" list: same but with targetType and receivers
+MessageListView {
+    id
+    title
+    content
+    createdTime
+    targetType
+    sender {
+        id
+        username
+        email
+    }
+    receivers {
+        user {
+            id
+            username
+            email
+        }
+    }
+}

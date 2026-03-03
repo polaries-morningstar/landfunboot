@@ -80,6 +80,12 @@ public class DataSeeder implements CommandLineRunner {
                                 MenuType.MENU);
                 long userKickoutId = saveMenu(onlineMenuId, "强制下线", null, null, "sys:user:kickout", MenuType.BUTTON);
 
+                // Group 3: 消息 (DIR)
+                long msgDirId = saveMenu(0, "消息", null, "message", "DIR_MSG", MenuType.DIR);
+                long msgSelfId = saveMenu(msgDirId, "我的消息", "/messages", "message", "msg:self", MenuType.MENU);
+                long msgSendId = saveMenu(msgSelfId, "发送消息", null, null, "msg:send", MenuType.BUTTON);
+                long msgListId = saveMenu(msgDirId, "全部消息", "/messages/all", "list", "msg:list", MenuType.MENU);
+
                 // 2. Create Roles
                 // Admin: All permissions
                 long adminRoleId = saveRole("Admin", "admin", "Administrator", DataScope.ALL,
@@ -88,13 +94,15 @@ public class DataSeeder implements CommandLineRunner {
                                                 roleListId, roleQueryId, roleAddId, roleUpdateId, roleDeleteId,
                                                 deptListId, deptAddId, deptUpdateId, deptDeleteId,
                                                 menuListId, menuAddId, menuUpdateId, menuDeleteId,
-                                                monitorDirId, monitorMenuId, onlineMenuId, userKickoutId));
+                                                monitorDirId, monitorMenuId, onlineMenuId, userKickoutId,
+                                                msgDirId, msgSelfId, msgSendId, msgListId));
 
-                // ReadOnly: List only
+                // ReadOnly: List only + my messages
                 long readOnlyRoleId = saveRole("ReadOnly", "readonly", "Read Only User", DataScope.ALL,
                                 java.util.List.of(
                                                 sysDirId, userListId, roleListId, deptListId, menuListId,
-                                                monitorDirId, monitorMenuId, onlineMenuId));
+                                                monitorDirId, monitorMenuId, onlineMenuId,
+                                                msgDirId, msgSelfId));
 
                 // 3. Create Departments
                 long rootDeptId = saveDept(0, "总部");
@@ -202,19 +210,20 @@ public class DataSeeder implements CommandLineRunner {
                                 .select(t)
                                 .fetchOneOrNull();
 
+                long roleId;
                 if (existing != null) {
-                        return existing.id();
+                        roleId = existing.id();
+                } else {
+                        roleId = sqlClient.getEntities().save(
+                                        RoleDraft.$.produce(draft -> {
+                                                draft.setName(name);
+                                                draft.setCode(code);
+                                                draft.setDescription(description);
+                                                draft.setDataScope(dataScope);
+                                        })).getModifiedEntity().id();
                 }
 
-                long roleId = sqlClient.getEntities().save(
-                                RoleDraft.$.produce(draft -> {
-                                        draft.setName(name);
-                                        draft.setCode(code);
-                                        draft.setDescription(description);
-                                        draft.setDataScope(dataScope);
-                                })).getModifiedEntity().id();
-
-                // Explicitly sync menus to avoid merging issues
+                // 始终同步菜单：新角色或已有角色都按 menuIds 更新，保证新增菜单（如消息）会赋给 Admin 等
                 log.info("Syncing {} menus for role: {}", menuIds.size(), code);
                 jdbcTemplate.update("DELETE FROM sys_role_menu_mapping WHERE role_id = ?", roleId);
                 for (Long menuId : menuIds) {

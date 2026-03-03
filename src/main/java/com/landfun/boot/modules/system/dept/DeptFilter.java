@@ -1,25 +1,18 @@
 package com.landfun.boot.modules.system.dept;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 import org.babyfish.jimmer.sql.event.EntityEvent;
 import org.babyfish.jimmer.sql.filter.CacheableFilter;
 import org.babyfish.jimmer.sql.filter.FilterArgs;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import com.landfun.boot.infrastructure.service.DataScopeResolver;
+import com.landfun.boot.infrastructure.service.DataScopeResolver.ScopeResult;
+import com.landfun.boot.infrastructure.service.DataScopeService;
 import com.landfun.boot.infrastructure.web.AuthContext;
-import com.landfun.boot.modules.system.dept.DeptProps;
-import com.landfun.boot.modules.system.role.DataScope;
 import com.landfun.boot.modules.system.user.User;
-import com.landfun.boot.modules.system.user.UserProps;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeptFilter implements CacheableFilter<DeptProps> {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final DataScopeService dataScopeService;
 
     @Override
     public SortedMap<String, Object> getParameters() {
@@ -44,10 +37,7 @@ public class DeptFilter implements CacheableFilter<DeptProps> {
 
     @Override
     public boolean isAffectedBy(EntityEvent<?> e) {
-        if (e.getImmutableType().getJavaClass() == Dept.class) {
-            return true;
-        }
-        return false;
+        return e.getImmutableType().getJavaClass() == Dept.class;
     }
 
     @Override
@@ -57,103 +47,22 @@ public class DeptFilter implements CacheableFilter<DeptProps> {
             return;
         }
 
-        boolean hasAll = false;
-        boolean hasRecursive = false;
-        boolean hasSame = false;
+        ScopeResult scope = DataScopeResolver.resolve(user, dataScopeService::getSubDeptIds);
 
-        // Single-role model: inspect only user.role()
-        if (org.babyfish.jimmer.ImmutableObjects.isLoaded(user, UserProps.ROLE) && user.role() != null) {
-            var role = user.role();
-            DataScope scope = role.dataScope();
-            if (scope == DataScope.ALL)
-                hasAll = true;
-            if (scope == DataScope.DEPT_RECURSIVE)
-                hasRecursive = true;
-            if (scope == DataScope.DEPT_SAME)
-                hasSame = true;
-        }
-
-        if (hasAll || user.isSuperuser()) {
+        if (scope.unrestricted()) {
             return;
         }
 
-        Long userDeptId = user.dept() == null ? null : user.dept().id();
-        Set<Long> allowedIds = new HashSet<>();
-
-        // Collect custom department IDs from single role (DEPT_CUSTOM)
-        if (org.babyfish.jimmer.ImmutableObjects.isLoaded(user, UserProps.ROLE) && user.role() != null) {
-            var role = user.role();
-            if (role.dataScope() == DataScope.DEPT_CUSTOM) {
-                if (org.babyfish.jimmer.ImmutableObjects.isLoaded(role,
-                        com.landfun.boot.modules.system.role.RoleProps.DEPTS) && role.depts() != null) {
-                    role.depts().forEach(d -> allowedIds.add(d.id()));
-                }
-            }
-        }
-
-        if (hasRecursive && userDeptId != null) {
-            allowedIds.addAll(getSubDeptIds(userDeptId));
-        }
-
-        if (hasSame && userDeptId != null) {
-            allowedIds.add(userDeptId);
-        }
-
-        if (allowedIds.isEmpty()) {
+        if (scope.selfOnly()) {
+            Long userDeptId = (user.dept() != null) ? user.dept().id() : null;
             if (userDeptId != null) {
-                // Default: see own dept
                 args.where(args.getTable().id().eq(userDeptId));
             } else {
-                // See nothing
                 args.where(args.getTable().id().eq(-1L));
             }
-        } else {
-            args.where(args.getTable().id().in(allowedIds));
-        }
-    }
-
-    /**
-     * Fetch all descendant dept IDs (including rootId itself) using raw JDBC.
-     * Avoids Jimmer fetcher to prevent this filter from triggering recursively.
-     */
-    private List<Long> getSubDeptIds(Long rootId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT id, parent_id FROM sys_dept");
-
-        Map<Long, List<Long>> childrenMap = new HashMap<>();
-        for (Map<String, Object> row : rows) {
-            Long id = toLong(row.get("id"));
-            Long parentId = toLong(row.get("parent_id"));
-            if (parentId != null && parentId > 0) {
-                childrenMap.computeIfAbsent(parentId, k -> new ArrayList<>()).add(id);
-            }
-        }
-
-        List<Long> result = new ArrayList<>();
-        collectChildrenJdbc(rootId, childrenMap, result, new HashSet<>());
-        return result;
-    }
-
-    private void collectChildrenJdbc(Long id, Map<Long, List<Long>> childrenMap,
-            List<Long> result, Set<Long> visited) {
-        if (!visited.add(id))
             return;
-        result.add(id);
-        List<Long> children = childrenMap.get(id);
-        if (children != null) {
-            for (Long childId : children) {
-                collectChildrenJdbc(childId, childrenMap, result, visited);
-            }
         }
-    }
 
-    private Long toLong(Object val) {
-        if (val == null)
-            return null;
-        if (val instanceof Long l)
-            return l;
-        if (val instanceof Number n)
-            return n.longValue();
-        return null;
+        args.where(args.getTable().id().in(scope.allowedDeptIds()));
     }
 }

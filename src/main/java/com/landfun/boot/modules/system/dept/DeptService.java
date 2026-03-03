@@ -1,9 +1,11 @@
 package com.landfun.boot.modules.system.dept;
 
 import java.util.List;
+import java.util.Set;
 
 import org.babyfish.jimmer.Page;
 import org.babyfish.jimmer.sql.JSqlClient;
+import org.babyfish.jimmer.sql.ast.Predicate;
 import org.babyfish.jimmer.sql.ast.mutation.SimpleSaveResult;
 import org.babyfish.jimmer.spring.repository.SpringOrders;
 import org.springframework.data.domain.Pageable;
@@ -11,7 +13,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.landfun.boot.infrastructure.exception.BizException;
+import com.landfun.boot.infrastructure.service.DataScopeResolver;
+import com.landfun.boot.infrastructure.service.DataScopeResolver.ScopeResult;
+import com.landfun.boot.infrastructure.service.DataScopeService;
+import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
+import com.landfun.boot.modules.system.user.User;
+import com.landfun.boot.modules.system.user.UserFilter;
 import com.landfun.boot.modules.system.dept.dto.CreateDeptInput;
 import com.landfun.boot.modules.system.dept.dto.UpdateDeptInput;
 import com.landfun.boot.modules.system.dept.dto.DeptSpecification;
@@ -26,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class DeptService {
 
     private final JSqlClient sqlClient;
+    private final DataScopeService dataScopeService;
 
     public PageResult<DeptView> list(DeptSpecification spec, Pageable pageable) {
         Page<DeptView> page = sqlClient.createQuery(DeptTable.$)
@@ -37,19 +46,43 @@ public class DeptService {
     }
 
     public List<DeptTreeView> tree() {
-        // Fetch all recursive using DTO View
-        List<DeptTreeView> roots = sqlClient.createQuery(DeptTable.$)
-                .where(org.babyfish.jimmer.sql.ast.Predicate.or(DeptTable.$.parentId().isNull(),
-                        DeptTable.$.parentId().eq(0L)))
-                .select(
-                        DeptTable.$.fetch(DeptTreeView.class))
+        User user = AuthContext.getUser();
+        ScopeResult scope = DataScopeResolver.resolve(user, dataScopeService::getSubDeptIds);
+
+        if (scope.unrestricted()) {
+            return sqlClient.createQuery(DeptTable.$)
+                    .where(Predicate.or(
+                            DeptTable.$.parentId().isNull(),
+                            DeptTable.$.parentId().eq(0L)))
+                    .select(DeptTable.$.fetch(DeptTreeView.class))
+                    .execute();
+        }
+
+        if (scope.selfOnly()) {
+            Long userDeptId = (user != null && user.dept() != null) ? user.dept().id() : null;
+            if (userDeptId == null) {
+                return List.of();
+            }
+            return sqlClient.createQuery(DeptTable.$)
+                    .where(DeptTable.$.id().eq(userDeptId))
+                    .select(DeptTable.$.fetch(DeptTreeView.class))
+                    .execute();
+        }
+
+        Set<Long> allowed = scope.allowedDeptIds();
+        return sqlClient.createQuery(DeptTable.$)
+                .where(Predicate.or(
+                        DeptTable.$.parentId().isNull(),
+                        DeptTable.$.parentId().eq(0L),
+                        DeptTable.$.parentId().notIn(allowed)))
+                .select(DeptTable.$.fetch(DeptTreeView.class))
                 .execute();
-        return roots;
     }
 
     @Transactional
     public DeptView create(CreateDeptInput input) {
         SimpleSaveResult<Dept> result = sqlClient.getEntities().save(input);
+        dataScopeService.evictSubDeptCache(null);
         return sqlClient.findById(DeptView.class, result.getModifiedEntity().id());
     }
 
@@ -58,6 +91,7 @@ public class DeptService {
         sqlClient.getEntities().saveCommand(input)
                 .setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.UPDATE_ONLY)
                 .execute();
+        dataScopeService.evictSubDeptCache(null);
         return sqlClient.findById(DeptView.class, input.getId());
     }
 
@@ -65,7 +99,7 @@ public class DeptService {
     public void delete(long id) {
         // 1. 不允许删除仍有未删除子部门的部门
         long childCount = sqlClient
-                .filters(cfg -> cfg.disableAll())
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(DeptTable.$)
                 .where(
                         DeptTable.$.parentId().eq(id),
@@ -78,7 +112,7 @@ public class DeptService {
 
         // 2. 不允许删除仍有未删除用户挂靠的部门
         long userCount = sqlClient
-                .filters(cfg -> cfg.disableAll())
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(UserTable.$)
                 .where(
                         UserTable.$.deptId().eq(id),
@@ -90,5 +124,6 @@ public class DeptService {
         }
 
         sqlClient.deleteById(Dept.class, id);
+        dataScopeService.evictSubDeptCache(null);
     }
 }

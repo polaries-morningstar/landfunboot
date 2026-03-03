@@ -32,4 +32,10 @@ public class AuthController {
     public R<Object> info() {
         return R.ok(authService.info());
     }
+
+    @Operation(summary = "Get current user menu tree (for sidebar, no sys:menu:list required)")
+    @org.springframework.web.bind.annotation.GetMapping("/menus")
+    public R<Object> menus() {
+        return R.ok(authService.menus());
+    }
 }

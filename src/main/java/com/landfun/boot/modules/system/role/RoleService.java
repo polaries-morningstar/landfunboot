@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.landfun.boot.infrastructure.exception.BizException;
 import com.landfun.boot.infrastructure.web.PageResult;
+import com.landfun.boot.modules.system.dept.DeptFilter;
+import com.landfun.boot.modules.system.user.UserFilter;
 import com.landfun.boot.modules.system.role.dto.CreateRoleInput;
 import com.landfun.boot.modules.system.role.dto.UpdateRoleInput;
 import com.landfun.boot.modules.system.role.dto.RoleSpecification;
@@ -54,7 +56,7 @@ public class RoleService {
     @Transactional
     public void delete(long id) {
         long userCount = sqlClient
-                .filters(cfg -> cfg.disableAll())
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(UserTable.$)
                 .where(
                         UserTable.$.roleId().eq(id),

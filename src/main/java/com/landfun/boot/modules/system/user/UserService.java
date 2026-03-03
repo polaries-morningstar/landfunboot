@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.landfun.boot.infrastructure.exception.BizException;
 import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
+import com.landfun.boot.modules.system.dept.DeptFilter;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
 import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordInput;
 import com.landfun.boot.modules.system.user.dto.CreateUserInput;
@@ -46,6 +47,7 @@ public class UserService {
 
     @Transactional
     public UserView create(CreateUserInput input) {
+        checkEmailUnique(input.getEmail(), null);
         String hashedPassword = cn.hutool.crypto.digest.BCrypt.hashpw(input.getPassword());
         input.setPassword(hashedPassword);
         SimpleSaveResult<User> result = sqlClient.getEntities().save(input);
@@ -59,8 +61,8 @@ public class UserService {
     @Transactional
     public UserView update(UpdateUserInput input) {
         log.info("Updating user with input: {}", input);
+        checkEmailUnique(input.getEmail(), input.getId());
 
-        // Update scalar fields and simple associations (dept, role)
         sqlClient.getEntities().saveCommand(input)
                 .setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.UPDATE_ONLY)
                 .execute();
@@ -84,6 +86,22 @@ public class UserService {
     }
 
     @Transactional
+    public UserView updateSelf(String username) {
+        Long currentUserId = AuthContext.getUserId();
+        if (currentUserId == null) {
+            throw new BizException(401, "用户未登录");
+        }
+        if (username == null || username.isBlank() || username.trim().length() < 2) {
+            throw new BizException(400, "用户名至少2个字符");
+        }
+        sqlClient.createUpdate(UserTable.$)
+                .set(UserTable.$.username(), username.trim())
+                .where(UserTable.$.id().eq(currentUserId))
+                .execute();
+        return sqlClient.findById(UserView.class, currentUserId);
+    }
+
+    @Transactional
     public void changeSelfPassword(ChangeSelfPasswordInput input) {
         Long currentUserId = AuthContext.getUserId();
         if (currentUserId == null) {
@@ -100,7 +118,7 @@ public class UserService {
     public void delete(long id) {
         // 禁止删除超级管理员用户
         Boolean isSuperuser = sqlClient
-                .filters(cfg -> cfg.disableAll())
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(UserTable.$)
                 .where(
                         UserTable.$.id().eq(id),
@@ -139,6 +157,27 @@ public class UserService {
             }
         }
         return result;
+    }
+
+    private void checkEmailUnique(String email, Long excludeUserId) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        var q = sqlClient
+                .filters(cfg -> cfg
+                        .disableByTypes(UserFilter.class, DeptFilter.class)
+                        .setBehavior(org.babyfish.jimmer.sql.runtime.LogicalDeletedBehavior.IGNORED))
+                .createQuery(UserTable.$)
+                .where(
+                        UserTable.$.email().eq(email.trim()),
+                        UserTable.$.deleteTime().isNull());
+        if (excludeUserId != null) {
+            q = q.where(UserTable.$.id().ne(excludeUserId));
+        }
+        long count = q.select(UserTable.$.id().count()).fetchOne();
+        if (count > 0) {
+            throw new BizException(400, "邮箱 " + email.trim() + " 已被其他用户使用，请更换");
+        }
     }
 
     /** 踢出指定用户（删除 Redis token 和权限缓存） */

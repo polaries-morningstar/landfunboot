@@ -77,6 +77,13 @@ public class UserController {
         return R.ok(null);
     }
 
+    @Operation(summary = "Update My Profile")
+    @PutMapping("/self")
+    public R<UserView> updateSelf(@RequestBody java.util.Map<String, String> body) {
+        String username = body.get("username");
+        return R.ok(userService.updateSelf(username));
+    }
+
     @Operation(summary = "Change My Password")
     @PostMapping("/password/self")
     public R<Void> changeSelfPassword(@RequestBody @Valid ChangeSelfPasswordInput input) {

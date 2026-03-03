@@ -16,7 +16,6 @@ public interface User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     long id();
 
-    @Key
     String username();
 
     @Key

@@ -1,5 +1,7 @@
 package com.landfun.boot.infrastructure.exception;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -14,9 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BizException.class)
-    public R<Void> handleBizException(BizException e) {
+    public ResponseEntity<R<Void>> handleBizException(BizException e) {
         log.warn("BizException: {}", e.getMessage());
-        return R.fail(e.getCode(), e.getMessage());
+        int code = e.getCode();
+        R<Void> body = R.fail(code, e.getMessage());
+        HttpStatus status = code >= 400 && code < 600 ? HttpStatus.valueOf(code) : HttpStatus.OK;
+        return ResponseEntity.status(status).body(body);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

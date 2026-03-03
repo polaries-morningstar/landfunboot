@@ -1,0 +1,21 @@
+export com.landfun.boot.modules.system.msg.MessageReceiver -> package com.landfun.boot.modules.system.msg.dto
+
+import com.landfun.boot.modules.system.msg.Message
+import com.landfun.boot.modules.system.user.User
+
+// For "my messages" list: receiver row with message and sender, plus readAt
+MyMessageRow {
+    id
+    readAt
+    message {
+        id
+        title
+        content
+        createdTime
+        sender {
+            id
+            username
+            email
+        }
+    }
+}
