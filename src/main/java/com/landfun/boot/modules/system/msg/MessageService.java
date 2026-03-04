@@ -56,24 +56,22 @@ public class MessageService {
             throw new BizException(400, "所选接收人不在您的数据权限范围内");
         }
 
-        Message message = sqlClient.getEntities().save(
+        Message message = sqlClient.getEntities().saveCommand(
                 MessageDraft.$.produce(d -> {
                     d.setSenderId(senderId);
                     d.setTitle(req.getTitle());
                     d.setContent(req.getContent() != null ? req.getContent() : "");
                     d.setTargetType(req.getTargetType());
-                }),
-                org.babyfish.jimmer.sql.ast.mutation.SaveMode.INSERT_ONLY
-        ).getModifiedEntity();
+                })
+        ).setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.INSERT_ONLY).execute().getModifiedEntity();
 
         for (Long userId : recipientIds) {
-            sqlClient.getEntities().save(
+            sqlClient.getEntities().saveCommand(
                     MessageReceiverDraft.$.produce(d -> {
                         d.setMessageId(message.id());
                         d.setUserId(userId);
-                    }),
-                    org.babyfish.jimmer.sql.ast.mutation.SaveMode.INSERT_ONLY
-            );
+                    })
+            ).setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.INSERT_ONLY).execute();
         }
         return sqlClient.findById(MessageView.class, message.id());
     }
