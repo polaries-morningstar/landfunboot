@@ -7,9 +7,9 @@
 *.war
 *.ear
 
-# Frontend ignore (Separately managed)
+# Frontend ignore (独立仓库，单独推送)
 frontend/
-landfunboot-vue-frontend/.git.bak
+landfunboot-vue-frontend/
 
 # Logs and PIDs
 *.log
