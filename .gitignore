@@ -9,6 +9,7 @@
 
 # Frontend ignore (Separately managed)
 frontend/
+landfunboot-vue-frontend/.git.bak
 
 # Logs and PIDs
 *.log

@@ -1,0 +1,117 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useForm } from 'vee-validate'
+import { toTypedSchema } from '@vee-validate/zod'
+import * as z from 'zod'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { userApi } from '@/api/user'
+import { useToast } from '@/components/ui/toast/use-toast'
+
+const props = defineProps<{
+  open: boolean
+  userId?: number | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:open', value: boolean): void
+  (e: 'success'): void
+}>()
+
+const { toast } = useToast()
+const loading = ref(false)
+
+const formSchema = toTypedSchema(
+  z.object({
+    password: z.string().min(6, '密码至少6个字符'),
+  })
+)
+
+const form = useForm({
+  validationSchema: formSchema,
+  initialValues: {
+    password: '',
+  }
+})
+
+// Reset form when dialog opens
+import { watch } from 'vue'
+watch(() => props.open, (newVal) => {
+  if (newVal) {
+    form.resetForm()
+  }
+})
+
+const onFormSubmit = form.handleSubmit(async (values) => {
+  if (!props.userId) return
+  
+  loading.value = true
+  try {
+    await userApi.changePassword({ 
+      id: props.userId, 
+      password: values.password 
+    })
+    toast({
+      title: '重置成功',
+      description: `用户密码已成功重置`,
+    })
+    emit('success')
+    emit('update:open', false)
+  } catch (error: any) {
+     // Error handled by request interceptor usually
+  } finally {
+    loading.value = false
+  }
+})
+</script>
+
+<template>
+  <Dialog :open="open" @update:open="emit('update:open', $event)">
+    <DialogContent class="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>重置密码</DialogTitle>
+        <DialogDescription>
+          请输入新的用户密码。
+        </DialogDescription>
+      </DialogHeader>
+      
+      <div class="py-4">
+        <form @submit="onFormSubmit" class="space-y-4">
+          <FormField v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>新密码</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="******" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <DialogFooter class="mt-6 pt-2 border-t">
+            <Button type="button" variant="outline" @click="emit('update:open', false)">
+              取消
+            </Button>
+            <Button type="submit" :disabled="loading">
+              {{ loading ? '保存中...' : '确认重置' }}
+            </Button>
+          </DialogFooter>
+        </form>
+      </div>
+    </DialogContent>
+  </Dialog>
+</template>
