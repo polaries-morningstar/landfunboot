@@ -130,7 +130,10 @@ public class MenuService {
 
     @Transactional
     public MenuView create(CreateMenuInput input) {
-        SimpleSaveResult<Menu> result = sqlClient.getEntities().save(input);
+        SimpleSaveResult<Menu> result = sqlClient.getEntities()
+                .saveCommand(input)
+                .setMode(org.babyfish.jimmer.sql.ast.mutation.SaveMode.INSERT_ONLY)
+                .execute();
         return sqlClient.findById(MenuView.class, result.getModifiedEntity().id());
     }
 
