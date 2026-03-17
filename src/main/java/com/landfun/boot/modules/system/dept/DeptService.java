@@ -49,8 +49,11 @@ public class DeptService {
         User user = AuthContext.getUser();
         ScopeResult scope = DataScopeResolver.resolve(user, dataScopeService::getSubDeptIds);
 
+        // Disable DeptFilter to avoid double-filtering; we apply scope manually here
+        var noFilter = sqlClient.filters(cfg -> cfg.disableByTypes(DeptFilter.class));
+
         if (scope.unrestricted()) {
-            return sqlClient.createQuery(DeptTable.$)
+            return noFilter.createQuery(DeptTable.$)
                     .where(Predicate.or(
                             DeptTable.$.parentId().isNull(),
                             DeptTable.$.parentId().eq(0L)))
@@ -63,14 +66,15 @@ public class DeptService {
             if (userDeptId == null) {
                 return List.of();
             }
-            return sqlClient.createQuery(DeptTable.$)
+            return noFilter.createQuery(DeptTable.$)
                     .where(DeptTable.$.id().eq(userDeptId))
                     .select(DeptTable.$.fetch(DeptTreeView.class))
                     .execute();
         }
 
         Set<Long> allowed = scope.allowedDeptIds();
-        return sqlClient.createQuery(DeptTable.$)
+        return noFilter.createQuery(DeptTable.$)
+                .where(DeptTable.$.id().in(allowed))
                 .where(Predicate.or(
                         DeptTable.$.parentId().isNull(),
                         DeptTable.$.parentId().eq(0L),

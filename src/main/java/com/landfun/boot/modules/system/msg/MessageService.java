@@ -131,15 +131,12 @@ public class MessageService {
         User currentUser = AuthContext.getUser();
         if (currentUser == null) throw new BizException(401, "未登录");
         Set<Long> visibleUserIds = dataScopeService.getVisibleUserIds(currentUser);
-        // 前端传 page=1 表示第一页，转为 0-based
-        int pageIndex = pageable.getPageNumber() > 0 ? pageable.getPageNumber() - 1 : 0;
-        int pageSize = pageable.getPageSize() > 0 ? pageable.getPageSize() : 10;
         Page<MessageListView> page;
         if (visibleUserIds == null) {
             page = sqlClient.createQuery(MessageTable.$)
                     .orderBy(MessageTable.$.createdTime().desc())
                     .select(MessageTable.$.fetch(MessageListView.class))
-                    .fetchPage(pageIndex, pageSize);
+                    .fetchPage(pageable.getPageNumber(), pageable.getPageSize());
         } else {
             if (visibleUserIds.isEmpty()) {
                 return PageResult.of(0, List.of());
@@ -148,20 +145,18 @@ public class MessageService {
                     .where(MessageTable.$.senderId().in(visibleUserIds))
                     .orderBy(MessageTable.$.createdTime().desc())
                     .select(MessageTable.$.fetch(MessageListView.class))
-                    .fetchPage(pageIndex, pageSize);
+                    .fetchPage(pageable.getPageNumber(), pageable.getPageSize());
         }
         return PageResult.of(page);
     }
 
     public PageResult<MyMessageRow> myList(Pageable pageable) {
         Long userId = AuthContext.getUserId();
-        int pageIndex = pageable.getPageNumber() > 0 ? pageable.getPageNumber() - 1 : 0;
-        int pageSize = pageable.getPageSize() > 0 ? pageable.getPageSize() : 10;
         Page<MyMessageRow> page = sqlClient.createQuery(MessageReceiverTable.$)
                 .where(MessageReceiverTable.$.userId().eq(userId))
                 .orderBy(MessageReceiverTable.$.message().createdTime().desc())
                 .select(MessageReceiverTable.$.fetch(MyMessageRow.class))
-                .fetchPage(pageIndex, pageSize);
+                .fetchPage(pageable.getPageNumber(), pageable.getPageSize());
         return PageResult.of(page);
     }
 
@@ -179,6 +174,7 @@ public class MessageService {
         return row;
     }
 
+    @Transactional
     public void markRead(long receiverId) {
         Long userId = AuthContext.getUserId();
         MessageReceiver receiver = sqlClient.createQuery(MessageReceiverTable.$)
@@ -196,6 +192,7 @@ public class MessageService {
     }
 
     /** Mark as read by message id (finds receiver row for current user). */
+    @Transactional
     public void markReadByMessageId(long messageId) {
         Long userId = AuthContext.getUserId();
         MessageReceiver receiver = sqlClient.createQuery(MessageReceiverTable.$)

@@ -12,7 +12,7 @@ import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.infrastructure.web.R;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
-import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordInput;
+import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordReq;
 import com.landfun.boot.modules.system.user.dto.CreateUserInput;
 import com.landfun.boot.modules.system.user.dto.UpdateUserInput;
 import com.landfun.boot.modules.system.user.dto.UserSpecification;
@@ -86,7 +86,7 @@ public class UserController {
 
     @Operation(summary = "Change My Password")
     @PostMapping("/password/self")
-    public R<Void> changeSelfPassword(@RequestBody @Valid ChangeSelfPasswordInput input) {
+    public R<Void> changeSelfPassword(@RequestBody @Valid ChangeSelfPasswordReq input) {
         userService.changeSelfPassword(input);
         return R.ok(null);
     }

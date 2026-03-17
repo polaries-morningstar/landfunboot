@@ -17,8 +17,9 @@ import com.landfun.boot.infrastructure.exception.BizException;
 import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.modules.system.dept.DeptFilter;
+import com.landfun.boot.infrastructure.util.RedisHelper;
 import com.landfun.boot.modules.system.user.dto.ChangePasswordInput;
-import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordInput;
+import com.landfun.boot.modules.system.user.dto.ChangeSelfPasswordReq;
 import com.landfun.boot.modules.system.user.dto.CreateUserInput;
 import com.landfun.boot.modules.system.user.dto.UpdateUserInput;
 import com.landfun.boot.modules.system.user.dto.UserSpecification;
@@ -69,9 +70,6 @@ public class UserService {
 
         // Evict permissions cache so that it re-fetches if roles changed
         redisTemplate.delete("user:permissions:" + input.getId());
-        // Also evict the token-based auth cache if user is currently logged in
-        // (no-op if not; Redis delete on missing key is safe)
-        redisTemplate.delete("user:token:" + input.getId());
 
         return sqlClient.findById(UserView.class, input.getId());
     }
@@ -102,12 +100,27 @@ public class UserService {
     }
 
     @Transactional
-    public void changeSelfPassword(ChangeSelfPasswordInput input) {
+    public void changeSelfPassword(ChangeSelfPasswordReq input) {
         Long currentUserId = AuthContext.getUserId();
         if (currentUserId == null) {
             throw new BizException(401, "User not authenticated");
         }
-        String hashedPassword = cn.hutool.crypto.digest.BCrypt.hashpw(input.getPassword());
+
+        // Verify old password
+        String currentPassword = sqlClient
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
+                .createQuery(UserTable.$)
+                .where(UserTable.$.id().eq(currentUserId))
+                .select(UserTable.$.password())
+                .fetchOneOrNull();
+        if (currentPassword == null) {
+            throw new BizException(404, "用户不存在");
+        }
+        if (!cn.hutool.crypto.digest.BCrypt.checkpw(input.oldPassword(), currentPassword)) {
+            throw new BizException(400, "当前密码不正确");
+        }
+
+        String hashedPassword = cn.hutool.crypto.digest.BCrypt.hashpw(input.password());
         sqlClient.createUpdate(UserTable.$)
                 .set(UserTable.$.password(), hashedPassword)
                 .where(UserTable.$.id().eq(currentUserId))
@@ -136,8 +149,8 @@ public class UserService {
 
     /** 查询所有在线用户（Redis 中持有 token 的用户） */
     public List<OnlineUserVO> listOnlineUsers() {
-        Set<String> keys = redisTemplate.keys("user:token:*");
-        if (keys == null || keys.isEmpty()) {
+        Set<String> keys = RedisHelper.scan(redisTemplate, "user:token:*");
+        if (keys.isEmpty()) {
             return List.of();
         }
 
@@ -164,13 +177,9 @@ public class UserService {
             return;
         }
         var q = sqlClient
-                .filters(cfg -> cfg
-                        .disableByTypes(UserFilter.class, DeptFilter.class)
-                        .setBehavior(org.babyfish.jimmer.sql.runtime.LogicalDeletedBehavior.IGNORED))
+                .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(UserTable.$)
-                .where(
-                        UserTable.$.email().eq(email.trim()),
-                        UserTable.$.deleteTime().isNull());
+                .where(UserTable.$.email().eq(email.trim()));
         if (excludeUserId != null) {
             q = q.where(UserTable.$.id().ne(excludeUserId));
         }

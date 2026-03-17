@@ -98,10 +98,7 @@ public class DataScopeService {
         if (deptId != null) {
             redisTemplate.delete(CACHE_KEY_PREFIX + deptId);
         }
-        Set<String> keys = redisTemplate.keys(CACHE_KEY_PREFIX + "*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        com.landfun.boot.infrastructure.util.RedisHelper.scanAndDelete(redisTemplate, CACHE_KEY_PREFIX + "*");
     }
 
     private List<Long> computeSubDeptIds(Long rootId) {

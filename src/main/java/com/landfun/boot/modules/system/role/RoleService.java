@@ -72,10 +72,7 @@ public class RoleService {
     }
 
     private void clearAllUserPermissionCaches() {
-        java.util.Set<String> keys = redisTemplate.keys("user:permissions:*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        com.landfun.boot.infrastructure.util.RedisHelper.scanAndDelete(redisTemplate, "user:permissions:*");
     }
 
     public java.util.List<RoleView> listAll(RoleSpecification spec, Pageable pageable) {

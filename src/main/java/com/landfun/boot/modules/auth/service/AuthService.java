@@ -1,9 +1,10 @@
 package com.landfun.boot.modules.auth.service;
 
 import java.time.Duration;
-import java.util.HashMap;
-import lombok.extern.slf4j.Slf4j;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.babyfish.jimmer.sql.JSqlClient;
@@ -14,10 +15,14 @@ import com.landfun.boot.infrastructure.exception.BizException;
 import com.landfun.boot.infrastructure.util.JwtUtils;
 import com.landfun.boot.infrastructure.web.AuthContext;
 import com.landfun.boot.modules.auth.dto.LoginReq;
+import com.landfun.boot.modules.auth.dto.LoginResult;
+import com.landfun.boot.modules.auth.dto.LoginResult.LoginUserInfo;
+import com.landfun.boot.modules.auth.dto.UserInfoResult;
 import com.landfun.boot.modules.system.dept.DeptFilter;
 import com.landfun.boot.modules.system.menu.Menu;
 import com.landfun.boot.modules.system.menu.MenuFetcher;
 import com.landfun.boot.modules.system.menu.MenuService;
+import com.landfun.boot.modules.system.menu.MenuTable;
 import com.landfun.boot.modules.system.menu.MenuType;
 import com.landfun.boot.modules.system.role.RoleFetcher;
 import com.landfun.boot.modules.system.user.User;
@@ -27,6 +32,7 @@ import com.landfun.boot.modules.system.user.UserTable;
 
 import cn.hutool.crypto.digest.BCrypt;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -38,7 +44,7 @@ public class AuthService {
     private final StringRedisTemplate redisTemplate;
     private final MenuService menuService;
 
-    public Object login(LoginReq req) {
+    public LoginResult login(LoginReq req) {
         if (req == null || req.email() == null || req.email().isBlank()) {
             throw new BizException(400, "请输入邮箱");
         }
@@ -47,7 +53,6 @@ public class AuthService {
         }
         log.debug("Login attempt for email: {}", req.email());
         UserTable t = UserTable.$;
-        // 登录时必须禁用过滤器，否则未登录状态下可能查不到用户
         User user = sqlClient
                 .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(t)
@@ -59,22 +64,18 @@ public class AuthService {
             log.warn("User not found: {}", req.email());
             throw new BizException(401, "用户不存在或密码错误");
         }
-        log.debug("User found: {}, checking password...", user.username());
 
         if (!BCrypt.checkpw(req.password(), user.password())) {
             log.warn("Password mismatch for user: {}", req.email());
             throw new BizException(401, "用户不存在或密码错误");
         }
-        log.debug("Password correct for user: {}", user.username());
 
         if (!user.isActive()) {
             throw new BizException(403, "账户已被禁用，请联系管理员");
         }
 
-        log.debug("Generating token for user: {}", user.id());
         String token = jwtUtils.createToken(user.id(), user.username());
 
-        // Store Token in Redis（失败时给出明确提示，便于排查重启后 Redis 未就绪等问题）
         String tokenKey = "user:token:" + user.id();
         try {
             redisTemplate.opsForValue().set(tokenKey, token, 30, TimeUnit.DAYS);
@@ -84,34 +85,27 @@ public class AuthService {
         }
 
         // Fetch user permissions (Role -> Menu -> Permission)
-        log.debug("Fetching role and menus for user: {}", user.id());
         User userWithRole = sqlClient
                 .filters(cfg -> cfg.disableByTypes(UserFilter.class, DeptFilter.class))
                 .createQuery(t)
                 .where(t.id().eq(user.id()))
-                .select(
-                        t.fetch(
-                                UserFetcher.$
+                .select(t.fetch(
+                        UserFetcher.$
+                                .allScalarFields()
+                                .role(RoleFetcher.$
                                         .allScalarFields()
-                                        .role(
-                                                RoleFetcher.$
-                                                        .allScalarFields()
-                                                        .menus(
-                                                                MenuFetcher.$.allScalarFields()))))
+                                        .menus(MenuFetcher.$.allScalarFields()))))
                 .fetchOne();
-        log.debug("User with role fetched successfully.");
 
-        // Collect permissions
-        java.util.Set<String> permissions = new java.util.HashSet<>();
+        Set<String> permissions = new HashSet<>();
         if (userWithRole != null && userWithRole.role() != null && userWithRole.role().menus() != null) {
-            for (com.landfun.boot.modules.system.menu.Menu menu : userWithRole.role().menus()) {
+            for (Menu menu : userWithRole.role().menus()) {
                 if (menu != null && menu.permission() != null && !menu.permission().isEmpty()) {
                     permissions.add(menu.permission());
                 }
             }
         }
 
-        // Store Permissions in Redis (Set)
         String permKey = "user:permissions:" + user.id();
         try {
             redisTemplate.delete(permKey);
@@ -121,35 +115,24 @@ public class AuthService {
             }
         } catch (Exception e) {
             log.warn("Redis set permissions failed for user {}: {}", user.id(), e.getMessage());
-            // 不阻断登录，仅记录；权限可后续从 DB 拉取
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("token", token);
-
-        Map<String, Object> userData = new HashMap<>();
-        userData.put("id", user.id());
-        userData.put("username", user.username());
-        userData.put("email", user.email());
-        userData.put("isSuperuser", user.isSuperuser());
-        result.put("user", userData);
-
-        return result;
+        return new LoginResult(
+                token,
+                new LoginUserInfo(user.id(), user.username(), user.email(), user.isSuperuser()));
     }
 
-    public Object info() {
-        Long userId = com.landfun.boot.infrastructure.web.AuthContext.getUserId();
+    public UserInfoResult info() {
+        Long userId = AuthContext.getUserId();
         if (userId == null) {
             throw new BizException(401, "Not authenticated");
         }
 
-        User user = com.landfun.boot.infrastructure.web.AuthContext.getUser();
+        User user = AuthContext.getUser();
         if (user == null) {
-            // Fallback if context is somehow lost, though it shouldn't be
-            user = sqlClient.createQuery(com.landfun.boot.modules.system.user.UserTable.$)
-                    .where(com.landfun.boot.modules.system.user.UserTable.$.id().eq(userId))
-                    .select(com.landfun.boot.modules.system.user.UserTable.$.fetch(
-                            com.landfun.boot.modules.system.user.UserFetcher.$.allScalarFields()))
+            user = sqlClient.createQuery(UserTable.$)
+                    .where(UserTable.$.id().eq(userId))
+                    .select(UserTable.$.fetch(UserFetcher.$.allScalarFields()))
                     .fetchOne();
         }
 
@@ -157,39 +140,30 @@ public class AuthService {
             throw new BizException(401, "User not found");
         }
 
-        log.debug("User info requested for ID: {}, isSuperuser: {}", userId, user.isSuperuser());
-
-        java.util.Set<String> permissions;
+        Set<String> permissions;
         if (user.isSuperuser()) {
-            log.debug("Superuser detected, granting all permissions");
-            // Fetch permissions from DB via bound role and its menus
-            permissions = new java.util.HashSet<>();
-            User userWithAll = sqlClient.getEntities().findById(
-                    UserFetcher.$.allScalarFields().role(
-                            RoleFetcher.$.allScalarFields().menus(
-                                    MenuFetcher.$.allScalarFields())),
-                    user.id());
-            if (userWithAll != null && userWithAll.role() != null) {
-                for (com.landfun.boot.modules.system.menu.Menu menu : userWithAll.role().menus()) {
-                    if (menu != null && menu.permission() != null && !menu.permission().isEmpty()) {
-                        permissions.add(menu.permission());
-                    }
+            // Superuser gets ALL permissions from ALL menus (not just their role)
+            permissions = new HashSet<>();
+            List<Menu> allMenus = sqlClient.createQuery(MenuTable.$)
+                    .select(MenuTable.$.fetch(MenuFetcher.$.permission()))
+                    .execute();
+            for (Menu menu : allMenus) {
+                if (menu.permission() != null && !menu.permission().isEmpty()) {
+                    permissions.add(menu.permission());
                 }
             }
         } else {
-            log.debug("Fetching permissions from Redis for user: {}", userId);
             String permKey = "user:permissions:" + userId;
             permissions = redisTemplate.opsForSet().members(permKey);
             if (permissions == null || permissions.isEmpty()) {
-                log.debug("Redis cache miss, fetching from DB");
-                permissions = new java.util.HashSet<>();
+                permissions = new HashSet<>();
                 User userWithRole = sqlClient.getEntities().findById(
                         UserFetcher.$.allScalarFields().role(
                                 RoleFetcher.$.allScalarFields().menus(
                                         MenuFetcher.$.allScalarFields())),
                         userId);
                 if (userWithRole != null && userWithRole.role() != null) {
-                    for (com.landfun.boot.modules.system.menu.Menu menu : userWithRole.role().menus()) {
+                    for (Menu menu : userWithRole.role().menus()) {
                         if (menu != null && menu.permission() != null && !menu.permission().isEmpty()) {
                             permissions.add(menu.permission());
                         }
@@ -202,46 +176,37 @@ public class AuthService {
             }
         }
 
-        Map<String, Object> userData = new HashMap<>();
-        userData.put("id", user.id());
-        userData.put("username", user.username());
-        userData.put("email", user.email());
-        userData.put("isSuperuser", user.isSuperuser());
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("user", userData);
-        result.put("permissions", permissions);
-
-        return result;
+        LoginUserInfo userInfo = new LoginUserInfo(user.id(), user.username(), user.email(), user.isSuperuser());
+        return new UserInfoResult(userInfo, permissions);
     }
 
     /**
      * Returns menu tree for the current user (menus from user's role, DIR and MENU only).
      * Requires authentication; no sys:menu:list permission needed.
      */
-    public Object menus() {
+    public List<Map<String, Object>> menus() {
         Long userId = AuthContext.getUserId();
         if (userId == null) {
             throw new BizException(401, "Not authenticated");
         }
         User userWithMenus = sqlClient
-                .createQuery(com.landfun.boot.modules.system.user.UserTable.$)
-                .where(com.landfun.boot.modules.system.user.UserTable.$.id().eq(userId))
-                .select(com.landfun.boot.modules.system.user.UserTable.$.fetch(
+                .createQuery(UserTable.$)
+                .where(UserTable.$.id().eq(userId))
+                .select(UserTable.$.fetch(
                         UserFetcher.$.allScalarFields()
                                 .role(RoleFetcher.$.allScalarFields()
                                         .menus(MenuFetcher.$.allScalarFields().parent(MenuFetcher.$.allScalarFields())))))
                 .fetchOne();
         if (userWithMenus == null) {
-            return java.util.Collections.emptyList();
+            return List.of();
         }
-        java.util.List<Menu> menusToShow;
+        List<Menu> menusToShow;
         if (userWithMenus.isSuperuser()) {
             menusToShow = menuService.getAllMenusWithParent().stream()
                     .filter(m -> m.type() == MenuType.DIR || m.type() == MenuType.MENU)
                     .toList();
         } else if (userWithMenus.role() == null || userWithMenus.role().menus() == null) {
-            return java.util.Collections.emptyList();
+            return List.of();
         } else {
             menusToShow = userWithMenus.role().menus();
         }

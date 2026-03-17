@@ -35,7 +35,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         String authHeader = request.getHeader("Authorization");
-        log.info("Checking Auth for URI: {}, Header: {}", request.getRequestURI(), authHeader);
+        log.debug("Checking Auth for URI: {}, hasToken: {}", request.getRequestURI(), authHeader != null);
 
         // Bearer token support; fall back to ?token= query param (for SSE /
         // EventSource)
@@ -61,7 +61,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             String redisKey = "user:token:" + userId;
             String redisToken = redisTemplate.opsForValue().get(redisKey);
 
-            log.info("Claims UserId: {}, RedisToken exists: {}", userId, redisToken != null);
+            log.debug("Claims UserId: {}, RedisToken exists: {}", userId, redisToken != null);
 
             if (redisToken == null || !redisToken.equals(token)) {
                 log.warn("Token mismatch or expired in Redis for user {}", userId);

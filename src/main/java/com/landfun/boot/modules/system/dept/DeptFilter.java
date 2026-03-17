@@ -58,7 +58,7 @@ public class DeptFilter implements CacheableFilter<DeptProps> {
             if (userDeptId != null) {
                 args.where(args.getTable().id().eq(userDeptId));
             } else {
-                args.where(args.getTable().id().eq(-1L));
+                args.where(args.getTable().id().isNull());
             }
             return;
         }

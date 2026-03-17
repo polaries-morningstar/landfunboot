@@ -13,6 +13,7 @@ import com.landfun.boot.infrastructure.web.R;
 import com.landfun.boot.modules.system.menu.dto.CreateMenuInput;
 import com.landfun.boot.modules.system.menu.dto.UpdateMenuInput;
 import com.landfun.boot.modules.system.menu.dto.MenuSpecification;
+import com.landfun.boot.modules.system.menu.dto.MenuTreeView;
 import com.landfun.boot.modules.system.menu.dto.MenuView;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,7 +39,7 @@ public class MenuController {
     @Operation(summary = "Get Menu Tree")
     @GetMapping("/tree")
     @HasPermission("sys:menu:list")
-    public R<List<java.util.Map<String, Object>>> tree() {
+    public R<List<MenuTreeView>> tree() {
         return R.ok(menuService.tree());
     }
 

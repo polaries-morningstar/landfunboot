@@ -32,9 +32,8 @@ input ChangePasswordInput {
     password
 }
 
-input ChangeSelfPasswordInput {
-    password
-}
+// ChangeSelfPasswordInput is replaced by hand-written ChangeSelfPasswordReq.java
+// (it needs an oldPassword field that is not part of the User entity)
 
 // Full view for list/get
 UserView {

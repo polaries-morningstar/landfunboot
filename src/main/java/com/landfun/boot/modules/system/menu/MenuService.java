@@ -9,16 +9,19 @@ import java.util.stream.Collectors;
 
 import org.babyfish.jimmer.Page;
 import org.babyfish.jimmer.sql.JSqlClient;
+import org.babyfish.jimmer.sql.ast.Predicate;
 import org.babyfish.jimmer.sql.ast.mutation.SimpleSaveResult;
 import org.babyfish.jimmer.spring.repository.SpringOrders;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.landfun.boot.infrastructure.util.RedisHelper;
 import com.landfun.boot.infrastructure.web.PageResult;
 import com.landfun.boot.modules.system.menu.dto.CreateMenuInput;
 import com.landfun.boot.modules.system.menu.dto.UpdateMenuInput;
 import com.landfun.boot.modules.system.menu.dto.MenuSpecification;
+import com.landfun.boot.modules.system.menu.dto.MenuTreeView;
 import com.landfun.boot.modules.system.menu.dto.MenuView;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -48,40 +51,16 @@ public class MenuService {
                 .execute();
     }
 
-    public List<java.util.Map<String, Object>> tree() {
-        List<Menu> allMenus = getAllMenusWithParent();
-        java.util.Map<Long, java.util.Map<String, Object>> map = new java.util.HashMap<>();
-        java.util.List<java.util.Map<String, Object>> roots = new java.util.ArrayList<>();
-
-        for (Menu m : allMenus) {
-            java.util.Map<String, Object> node = new java.util.LinkedHashMap<>();
-            node.put("id", m.id());
-            node.put("name", m.name());
-            node.put("path", m.path());
-            node.put("icon", m.icon());
-            node.put("permission", m.permission());
-            node.put("type", m.type());
-            node.put("createdTime", m.createdTime());
-            node.put("updatedTime", m.updatedTime());
-            node.put("children", new java.util.ArrayList<>());
-            map.put(m.id(), node);
-        }
-
-        for (Menu m : allMenus) {
-            java.util.Map<String, Object> current = map.get(m.id());
-            Menu parent = m.parent();
-            if (parent == null) {
-                roots.add(current);
-            } else {
-                java.util.Map<String, Object> parentNode = map.get(parent.id());
-                if (parentNode != null) {
-                    ((java.util.List<Object>) parentNode.get("children")).add(current);
-                } else {
-                    roots.add(current);
-                }
-            }
-        }
-        return roots;
+    /**
+     * Full menu tree (root nodes with recursive children) using Jimmer's MenuTreeView.
+     */
+    public List<MenuTreeView> tree() {
+        return sqlClient.createQuery(MenuTable.$)
+                .where(Predicate.or(
+                        MenuTable.$.parentId().isNull(),
+                        MenuTable.$.parentId().eq(0L)))
+                .select(MenuTable.$.fetch(MenuTreeView.class))
+                .execute();
     }
 
     /**
@@ -154,9 +133,6 @@ public class MenuService {
     }
 
     private void clearAllUserPermissionCaches() {
-        java.util.Set<String> keys = redisTemplate.keys("user:permissions:*");
-        if (keys != null && !keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        RedisHelper.scanAndDelete(redisTemplate, "user:permissions:*");
     }
 }

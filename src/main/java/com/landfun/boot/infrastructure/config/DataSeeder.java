@@ -210,22 +210,21 @@ public class DataSeeder implements CommandLineRunner {
                                 .select(t)
                                 .fetchOneOrNull();
 
-                long roleId;
                 if (existing != null) {
-                        roleId = existing.id();
-                } else {
-                        roleId = sqlClient.getEntities().save(
-                                        RoleDraft.$.produce(draft -> {
-                                                draft.setName(name);
-                                                draft.setCode(code);
-                                                draft.setDescription(description);
-                                                draft.setDataScope(dataScope);
-                                        })).getModifiedEntity().id();
+                        // Role already exists — do not overwrite menu mappings to preserve admin changes
+                        return existing.id();
                 }
 
-                // 始终同步菜单：新角色或已有角色都按 menuIds 更新，保证新增菜单（如消息）会赋给 Admin 等
-                log.info("Syncing {} menus for role: {}", menuIds.size(), code);
-                jdbcTemplate.update("DELETE FROM sys_role_menu_mapping WHERE role_id = ?", roleId);
+                long roleId = sqlClient.getEntities().save(
+                                RoleDraft.$.produce(draft -> {
+                                        draft.setName(name);
+                                        draft.setCode(code);
+                                        draft.setDescription(description);
+                                        draft.setDataScope(dataScope);
+                                })).getModifiedEntity().id();
+
+                // Only initialize menu mappings for newly created roles
+                log.info("Initializing {} menus for new role: {}", menuIds.size(), code);
                 for (Long menuId : menuIds) {
                         jdbcTemplate.update("INSERT INTO sys_role_menu_mapping (role_id, menu_id) VALUES (?, ?)",
                                         roleId,

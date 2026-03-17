@@ -2,6 +2,7 @@ package com.landfun.boot.infrastructure.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -22,6 +23,15 @@ public class GlobalExceptionHandler {
         R<Void> body = R.fail(code, e.getMessage());
         HttpStatus status = code >= 400 && code < 600 ? HttpStatus.valueOf(code) : HttpStatus.OK;
         return ResponseEntity.status(status).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<R<Void>> handleValidationException(MethodArgumentNotValidException e) {
+        String msg = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fe -> fe.getDefaultMessage())
+                .orElse("参数校验失败");
+        return ResponseEntity.badRequest().body(R.fail(400, msg));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
